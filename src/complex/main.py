@@ -20,39 +20,19 @@ def check_circ_overlap(x1, y1, r1, x2, y2, r2) -> bool:
     return d < (r1 + r2)
 
 def create_rect():
-    gmsh.model.geo.addPoint(0, 0, 0, size, 1)
-    gmsh.model.geo.addPoint(layout_x, 0, 0, size, 2)
-    gmsh.model.geo.addPoint(layout_x, layout_y, 0, size, 3)
-    gmsh.model.geo.addPoint(0, layout_y, 0, size, 4)
-    gmsh.model.geo.addLine(1, 2, 1)
-    gmsh.model.geo.addLine(2, 3, 2)
-    gmsh.model.geo.addLine(3, 4, 3)
-    gmsh.model.geo.addLine(4, 1, 4)
-    gmsh.model.geo.addCurveLoop([1, 2, 3, 4], 1)
-    gmsh.model.geo.addPlaneSurface([1], 1)
+    return gmsh.model.occ.addRectangle(0, 0, 0, layout_x, layout_y)
 
 # FUNCTION TO ADD A CIRCLE
 def add_circle(cx, cy, radius):
-    center_tag = gmsh.model.geo.addPoint(cx, cy, 0, size)
-
-    p1 = gmsh.model.geo.addPoint(cx + radius, cy, 0, size)
-    p2 = gmsh.model.geo.addPoint(cx, cy + radius, 0, size)
-    p3 = gmsh.model.geo.addPoint(cx - radius, cy, 0, size)
-    p4 = gmsh.model.geo.addPoint(cx, cy - radius, 0, size)
-
-    arc1 = gmsh.model.geo.addCircleArc(p1, center_tag, p2)
-    arc2 = gmsh.model.geo.addCircleArc(p2, center_tag, p3)
-    arc3 = gmsh.model.geo.addCircleArc(p3, center_tag, p4)
-    arc4 = gmsh.model.geo.addCircleArc(p4, center_tag, p1)
-
-    curve_loop_tag = gmsh.model.geo.addCurveLoop([arc1, arc2, arc3, arc4])
-    gmsh.model.geo.addPlaneSurface([curve_loop_tag])
+    return gmsh.model.occ.addDisk(cx, cy, 0, radius, radius)
 
 # MAIN
 def main():
     gmsh.initialize()
     gmsh.model.add("Mesh Result")
-    create_rect()
+    
+    rect = create_rect()
+    circle_tags = []
 
     for _ in range(circles):
         valid_placement = False
@@ -60,10 +40,7 @@ def main():
             circ_x_bound = random.uniform(-circle_radius, layout_x + circle_radius)
             circ_y_bound = random.uniform(-circle_radius, layout_y + circle_radius)
 
-            potential_positions = [
-                (circ_x_bound, circ_y_bound),
-            ]
-
+            potential_positions = [(circ_x_bound, circ_y_bound)]
             if circ_x_bound - circle_radius < 0:
                 potential_positions.append((circ_x_bound + layout_x, circ_y_bound))
             if circ_x_bound + circle_radius > layout_x:
@@ -72,7 +49,6 @@ def main():
                 potential_positions.append((circ_x_bound, circ_y_bound + layout_y))
             if circ_y_bound + circle_radius > layout_y:
                 potential_positions.append((circ_x_bound, circ_y_bound - layout_y))
-
             if (circ_x_bound - circle_radius < 0 and circ_y_bound - circle_radius < 0):
                 potential_positions.append((circ_x_bound + layout_x, circ_y_bound + layout_y))
             if (circ_x_bound + circle_radius > layout_x and circ_y_bound - circle_radius < 0):
@@ -88,16 +64,19 @@ def main():
                 for x, y, r in placed_circles
             )
 
-
         placed_circles.append((circ_x_bound, circ_y_bound, circle_radius))
-
-        add_circle(circ_x_bound, circ_y_bound, circle_radius)
+        circle_tags.append(add_circle(circ_x_bound, circ_y_bound, circle_radius))
 
         for px, py in potential_positions[1:]:
             placed_circles.append((px, py, circle_radius))
-            add_circle(px, py, circle_radius)
-
-    gmsh.model.geo.synchronize()
+            circle_tags.append(add_circle(px, py, circle_radius))
+    
+    gmsh.model.occ.synchronize()
+    
+    # Intersect the circles with the rectangle to keep only the inside portions
+    gmsh.model.occ.intersect([(2, tag) for tag in circle_tags], [(2, rect)], removeTool=False)
+    
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
     gmsh.fltk.run()
     gmsh.finalize()
