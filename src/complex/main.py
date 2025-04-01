@@ -73,10 +73,12 @@ def main():
     
     gmsh.model.occ.synchronize()
     
-    # Intersect the circles with the rectangle to keep only the inside portions
     gmsh.model.occ.intersect([(2, tag) for tag in circle_tags], [(2, rect)], removeTool=False)
-    
     gmsh.model.occ.synchronize()
+    
+    gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
+    gmsh.model.occ.synchronize()
+    
     gmsh.model.mesh.generate(2)
     gmsh.fltk.run()
     gmsh.finalize()
