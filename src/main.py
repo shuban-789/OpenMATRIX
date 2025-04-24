@@ -2,7 +2,7 @@ import armgen2d
 import sys
 import os
 
-def generatemeshes(number):
+def genmeshes(number):
     for i in range(number):
         if not os.path.exists("../records/"):
             os.mkdir("../records/")
@@ -34,7 +34,7 @@ def main():
         if sys.argv[1] == "-g" and len(sys.argv) == 3:
             os.system("rm -rf ../records/*")
             number = int(sys.argv[2])
-            generatemeshes(number)
+            genmeshes(number)
         elif sys.argv[1] == "-c":
             os.system("rm -rf ../records/*")
         else:
