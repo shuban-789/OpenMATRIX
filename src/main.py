@@ -4,6 +4,8 @@ import os
 
 def generatemeshes(number):
     for i in range(number):
+        if not os.path.exists("../records/"):
+            os.mkdir("../records/")
         path_name = "../records/" + str(i)
         os.mkdir(path_name)
         savepath = path_name + "/mesh" + str(i) + ".xdmf"
