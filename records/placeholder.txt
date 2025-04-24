@@ -1,0 +1,1 @@
+The /records folder is for technical use. Please do not put any junk inside this directory for organizational purposes. This directory will populate as paraview accessible meshes as soon as the mesh generator executes.
