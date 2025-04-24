@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 from mpi4py import MPI
 from dolfinx.io import gmshio, XDMFFile
+from scipy.stats import truncnorm
 import gmsh
 import random
 import math
@@ -31,6 +32,10 @@ class MeshGenerator:
     def add_circle(self, cx, cy, radius):
         return gmsh.model.occ.addDisk(cx, cy, 0, radius, radius)
 
+    def truncated_gaussian(self, rmin, rmax, rmean, rstd):
+        a, b = (rmin - rmean) / rstd, (rmax - rmean) / rstd
+        return truncnorm.rvs(a, b, loc=rmean, scale=rstd)
+
     def generate(self, visualize=True, save_path=None):
         comm = MPI.COMM_WORLD
         rank = comm.rank
@@ -50,7 +55,12 @@ class MeshGenerator:
                     if self.distribution == "uniform":
                         circle_radius = random.uniform(0.1, self.randomized_max_radius)
                     elif self.distribution == "gaussian":
-                        circle_radius = abs(random.gauss(0.1, self.randomized_max_radius))
+                        circle_radius = self.truncated_gaussian(
+                        rmin=0.1,
+                        rmax=self.randomized_max_radius,
+                        rmean=(self.randomized_max_radius + 0.1) / 2,
+                        rstd=(self.randomized_max_radius - 0.1) / 4
+                    )
                     else:
                         raise ValueError("Unsupported distribution type.")
                 else:
@@ -61,7 +71,6 @@ class MeshGenerator:
 
                 potential_positions = [(cx, cy)]
 
-                # Periodic duplicates
                 if cx - circle_radius < 0:
                     potential_positions.append((cx + self.layout_x, cy))
                 if cx + circle_radius > self.layout_x:
@@ -71,7 +80,6 @@ class MeshGenerator:
                 if cy + circle_radius > self.layout_y:
                     potential_positions.append((cx, cy - self.layout_y))
 
-                # Corner wraps
                 if cx - circle_radius < 0 and cy - circle_radius < 0:
                     potential_positions.append((cx + self.layout_x, cy + self.layout_y))
                 if cx + circle_radius > self.layout_x and cy - circle_radius < 0:
