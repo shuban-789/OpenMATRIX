@@ -121,6 +121,7 @@ class MeshGenerator:
 
         if save_path:
             mesh, cell_tags, facet_tags = gmshio.model_to_mesh(gmsh.model, comm, 0, gdim=2)
+            gmsh.finalize()
             mesh.topology.create_entities(mesh.topology.dim - 1)
             mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
             with XDMFFile(comm, save_path, "w") as xdmf:
@@ -128,9 +129,5 @@ class MeshGenerator:
                 xdmf.write_meshtags(cell_tags, mesh.geometry)
                 xdmf.write_meshtags(facet_tags, mesh.geometry)
 
-
-
         if visualize:
             gmsh.fltk.run()
-
-        gmsh.finalize()
