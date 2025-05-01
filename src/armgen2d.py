@@ -7,7 +7,6 @@ import random
 import math
 
 class MeshGenerator:
-
     def __init__(self, layout, size, circles, randomized_max_radius, distribution,
                  set_circle_radius, mesh_element_size, randomized_radius):
         self.layout = layout
@@ -113,21 +112,35 @@ class MeshGenerator:
         gmsh.model.occ.synchronize()
         gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
         gmsh.model.occ.synchronize()
-        surfaces = gmsh.model.getEntities(dim=2)
-        surface_tags = [s[1] for s in surfaces]
-        gmsh.model.addPhysicalGroup(2, surface_tags, tag=1)
+        edges = gmsh.model.getEntities(dim=1)
+        for i, (dim, tag) in enumerate(edges):
+            gmsh.model.addPhysicalGroup(dim, [tag], tag=10 + i)
+            gmsh.model.setPhysicalName(dim, 10 + i, f"Edge_{i}")
+
+        circle_surfaces = [tag for tag in circle_tags]
+        gmsh.model.addPhysicalGroup(2, circle_surfaces, tag=20)
+        gmsh.model.setPhysicalName(2, 20, "Circles")
+
+        all_surfaces = gmsh.model.getEntities(dim=2)
+        background_surfaces = [s[1] for s in all_surfaces if s[1] not in circle_surfaces]
+        gmsh.model.addPhysicalGroup(2, background_surfaces, tag=30)
+        gmsh.model.setPhysicalName(2, 30, "Background")
 
         gmsh.model.mesh.generate(2)
 
-        if save_path:
-            mesh, cell_tags, facet_tags = gmshio.model_to_mesh(gmsh.model, comm, 0, gdim=2)
-            gmsh.finalize()
-            mesh.topology.create_entities(mesh.topology.dim - 1)
-            mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
-            with XDMFFile(comm, save_path, "w") as xdmf:
-                xdmf.write_mesh(mesh)
-                xdmf.write_meshtags(cell_tags, mesh.geometry)
-                xdmf.write_meshtags(facet_tags, mesh.geometry)
+        mesh, cell_tags, facet_tags = gmshio.model_to_mesh(gmsh.model, comm, 0, gdim=2)
+        mesh.topology.create_entities(mesh.topology.dim - 1)
+        mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
+
+        with XDMFFile(comm, save_path, "w") as xdmf:
+            xdmf.write_mesh(mesh)
+            xdmf.write_meshtags(cell_tags, mesh.geometry)
+            xdmf.write_meshtags(facet_tags, mesh.geometry)
 
         if visualize:
-            gmsh.fltk.run()
+            try:
+                gmsh.fltk.run()
+            except Exception as e:
+                print(f"Visualization failed: {e}")
+
+        gmsh.finalize()

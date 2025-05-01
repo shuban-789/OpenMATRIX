@@ -2,13 +2,17 @@ import armgen2d
 import sys
 import os
 
+SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
+RECORDS_PATH = os.path.join(SCRIPT_PATH, "..", "records")
+
 def genmeshes(number):
     for i in range(number):
-        if not os.path.exists("../records/"):
-            os.mkdir("../records/")
-        path_name = "../records/" + str(i)
+        if not os.path.exists(RECORDS_PATH):
+            os.mkdir(RECORDS_PATH)
+        path_name = RECORDS_PATH + "/" + str(i)
         os.mkdir(path_name)
         savepath = path_name + "/mesh" + str(i) + ".xdmf"
+        print("Generating mesh " + str(i) + " stored at " + savepath)
         layout = (4, 4)
         size = 0.01
         circles = 5
@@ -32,11 +36,11 @@ def genmeshes(number):
 def main():
     if len(sys.argv) > 1:
         if sys.argv[1] == "-g" and len(sys.argv) == 3:
-            os.system("rm -rf ../records/*")
+            os.system("rm -rf " + RECORDS_PATH + "/*")
             number = int(sys.argv[2])
             genmeshes(number)
         elif sys.argv[1] == "-c":
-            os.system("rm -rf ../records/*")
+            os.system("rm -rf " + RECORDS_PATH + "/*")
         else:
             print("Invalid command. Use -g <number> to generate meshes or -c to clear records.")
     else:
