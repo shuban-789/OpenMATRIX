@@ -31,7 +31,7 @@ def genmeshes(number):
             set_circle_radius=set_circle_radius,
             randomized_radius=randomized_radius
         )
-        generator.generate(save_path=savepath, visualize=False)
+        generator.generate(save_path=savepath, visualize=True)
 
 def main():
     if len(sys.argv) > 1:
