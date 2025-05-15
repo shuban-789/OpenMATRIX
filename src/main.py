@@ -33,7 +33,8 @@ def genmeshes(number):
             randomized_max_radius=randomized_max_radius,
             distribution=distribution,
             set_circle_radius=set_circle_radius,
-            randomized_radius=randomized_radius
+            randomized_radius=randomized_radius,
+            min_fraction_inside=0.2
         )
         generator.generate(save_path=savepath, visualize=True)
 

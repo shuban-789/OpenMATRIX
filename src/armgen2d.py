@@ -8,7 +8,7 @@ import math
 
 class MeshGenerator:
     def __init__(self, layout, size, circles, randomized_max_radius, distribution,
-                 set_circle_radius, mesh_element_size, randomized_radius):
+                 set_circle_radius, mesh_element_size, randomized_radius, min_fraction_inside=0.3):
         self.layout = layout
         self.layout_x = float(layout[0])
         self.layout_y = float(layout[1])
@@ -20,10 +20,25 @@ class MeshGenerator:
         self.mesh_element_size = mesh_element_size
         self.randomized_radius = randomized_radius
         self.placed_circles = []
+        self.min_fraction_inside = min_fraction_inside
 
     def check_circ_overlap(self, x1, y1, r1, x2, y2, r2) -> bool:
         d = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         return d < (r1 + r2)
+
+    def is_enough_inside(self, cx, cy, radius):
+        x_min = cx - radius
+        x_max = cx + radius
+        y_min = cy - radius
+        y_max = cy + radius
+
+        x_overlap = max(0, min(x_max, self.layout_x) - max(x_min, 0))
+        y_overlap = max(0, min(y_max, self.layout_y) - max(y_min, 0))
+
+        overlap_area = x_overlap * y_overlap
+        circle_area = math.pi * radius * radius
+
+        return overlap_area / circle_area >= self.min_fraction_inside
 
     def create_rect(self):
         rect = gmsh.model.occ.addRectangle(0, 0, 0, self.layout_x, self.layout_y)
@@ -46,7 +61,7 @@ class MeshGenerator:
         gmsh.model.add("Mesh Result")
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", self.mesh_element_size)
 
-        rect, rect_edges = self.create_rect() # creating specific edge properties will help for labeling
+        rect, rect_edges = self.create_rect()
         circle_tags = []
 
         placed_count = 0
@@ -58,11 +73,11 @@ class MeshGenerator:
                         circle_radius = random.uniform(0.1, self.randomized_max_radius)
                     elif self.distribution == "gaussian":
                         circle_radius = self.truncated_gaussian(
-                        rmin=0.1,
-                        rmax=self.randomized_max_radius,
-                        rmean=(self.randomized_max_radius + 0.1) / 2,
-                        rstd=(self.randomized_max_radius - 0.1) / 4
-                    )
+                            rmin=0.1,
+                            rmax=self.randomized_max_radius,
+                            rmean=(self.randomized_max_radius + 0.1) / 2,
+                            rstd=(self.randomized_max_radius - 0.1) / 4
+                        )
                     else:
                         raise ValueError("Unsupported distribution type.")
                 else:
@@ -95,38 +110,34 @@ class MeshGenerator:
                     not self.check_circ_overlap(px, py, circle_radius, x, y, r)
                     for px, py in potential_positions
                     for x, y, r in self.placed_circles
-                )
+                ) and self.is_enough_inside(cx, cy, circle_radius)
 
-            buffer = 0.0001
-            if (cx - circle_radius >= buffer and
-                cx + circle_radius <= self.layout_x - buffer and
-                cy - circle_radius >= buffer and
-                cy + circle_radius <= self.layout_y - buffer):
-                placed_count += 1
-                self.placed_circles.append((cx, cy, circle_radius))
-                circle_tags.append(self.add_circle(cx, cy, circle_radius))
+            placed_count += 1
+            self.placed_circles.append((cx, cy, circle_radius))
+            circle_tags.append(self.add_circle(cx, cy, circle_radius))
 
-                for px, py in potential_positions[1:]:
-                    self.placed_circles.append((px, py, circle_radius))
-                    circle_tags.append(self.add_circle(px, py, circle_radius))
+            for px, py in potential_positions[1:]:
+                self.placed_circles.append((px, py, circle_radius))
+                circle_tags.append(self.add_circle(px, py, circle_radius))
 
         gmsh.model.occ.synchronize()
         gmsh.model.occ.intersect([(2, tag) for tag in circle_tags], [(2, rect)], removeTool=False)
         gmsh.model.occ.synchronize()
         gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
         gmsh.model.occ.synchronize()
+
         for i, (dim, tag) in enumerate(rect_edges):
-            gmsh.model.addPhysicalGroup(dim, [tag], tag=i + 1)  # tags 1, 2, 3, 4
+            gmsh.model.addPhysicalGroup(dim, [tag], tag=i + 1)
             gmsh.model.setPhysicalName(dim, i + 1, f"Side_{i + 1}")
 
         circle_surfaces = [tag for tag in circle_tags]
         gmsh.model.addPhysicalGroup(2, circle_surfaces, tag=1)
-        gmsh.model.setPhysicalName(2, 20, "Circles")
+        gmsh.model.setPhysicalName(2, 1, "Circles")
 
         all_surfaces = gmsh.model.getEntities(dim=2)
         background_surfaces = [s[1] for s in all_surfaces if s[1] not in circle_surfaces]
         gmsh.model.addPhysicalGroup(2, background_surfaces, tag=2)
-        gmsh.model.setPhysicalName(2, 30, "Background")
+        gmsh.model.setPhysicalName(2, 2, "Background")
 
         gmsh.model.mesh.generate(2)
 
