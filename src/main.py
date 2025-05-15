@@ -2,6 +2,10 @@ import armgen2d
 import sys
 import os
 
+# WARNING: Moving this file may break functionality due to relative paths.
+# Make sure to move this file carefully and ensure /records is a directory
+# behind this script.
+
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 RECORDS_PATH = os.path.join(SCRIPT_PATH, "..", "records")
 

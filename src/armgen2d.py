@@ -26,7 +26,10 @@ class MeshGenerator:
         return d < (r1 + r2)
 
     def create_rect(self):
-        return gmsh.model.occ.addRectangle(0, 0, 0, self.layout_x, self.layout_y)
+        rect = gmsh.model.occ.addRectangle(0, 0, 0, self.layout_x, self.layout_y)
+        gmsh.model.occ.synchronize()
+        rect_edges = gmsh.model.getBoundary([(2, rect)], oriented=True)
+        return rect, rect_edges
 
     def add_circle(self, cx, cy, radius):
         return gmsh.model.occ.addDisk(cx, cy, 0, radius, radius)
@@ -43,7 +46,7 @@ class MeshGenerator:
         gmsh.model.add("Mesh Result")
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", self.mesh_element_size)
 
-        rect = self.create_rect()
+        rect, rect_edges = self.create_rect() # creating specific edge properties will help for labeling
         circle_tags = []
 
         placed_count = 0
@@ -112,18 +115,17 @@ class MeshGenerator:
         gmsh.model.occ.synchronize()
         gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
         gmsh.model.occ.synchronize()
-        edges = gmsh.model.getEntities(dim=1)
-        for i, (dim, tag) in enumerate(edges):
-            gmsh.model.addPhysicalGroup(dim, [tag], tag=10 + i)
-            gmsh.model.setPhysicalName(dim, 10 + i, f"Edge_{i}")
+        for i, (dim, tag) in enumerate(rect_edges):
+            gmsh.model.addPhysicalGroup(dim, [tag], tag=i + 1)  # tags 1, 2, 3, 4
+            gmsh.model.setPhysicalName(dim, i + 1, f"Side_{i + 1}")
 
         circle_surfaces = [tag for tag in circle_tags]
-        gmsh.model.addPhysicalGroup(2, circle_surfaces, tag=20)
+        gmsh.model.addPhysicalGroup(2, circle_surfaces, tag=1)
         gmsh.model.setPhysicalName(2, 20, "Circles")
 
         all_surfaces = gmsh.model.getEntities(dim=2)
         background_surfaces = [s[1] for s in all_surfaces if s[1] not in circle_surfaces]
-        gmsh.model.addPhysicalGroup(2, background_surfaces, tag=30)
+        gmsh.model.addPhysicalGroup(2, background_surfaces, tag=2)
         gmsh.model.setPhysicalName(2, 30, "Background")
 
         gmsh.model.mesh.generate(2)
