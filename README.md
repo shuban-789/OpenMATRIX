@@ -5,3 +5,8 @@
 ```
 Use -g <number> to generate meshes or -c to clear records.
 ```
+
+Docker:
+```
+sudo docker run -it --rm -v "$(pwd)":/workspace:z dolfinx/dolfinx:v0.6.0
+```

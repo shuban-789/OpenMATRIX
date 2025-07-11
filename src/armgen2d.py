@@ -126,9 +126,34 @@ class MeshGenerator:
         gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
         gmsh.model.occ.synchronize()
 
-        for i, (dim, tag) in enumerate(rect_edges):
-            gmsh.model.addPhysicalGroup(dim, [tag], tag=i + 1)
-            gmsh.model.setPhysicalName(dim, i + 1, f"Side_{i + 1}")
+        all_edges = gmsh.model.getEntities(dim=1)
+
+        def midpoint(tag):
+            x, y, _ = gmsh.model.occ.getCenterOfMass(1, tag)
+            return x, y
+
+        tol = 1e-6
+        left, right, bottom, top = [], [], [], []
+
+        for (dim, tag) in all_edges:
+            x, y = midpoint(tag)
+            if abs(x - 0) < tol:
+                left.append(tag)
+            elif abs(x - self.layout_x) < tol:
+                right.append(tag)
+            elif abs(y - 0) < tol:
+                bottom.append(tag)
+            elif abs(y - self.layout_y) < tol:
+                top.append(tag)
+
+        gmsh.model.addPhysicalGroup(1, bottom, tag=1)
+        gmsh.model.setPhysicalName(1, 1, "Bottom")
+        gmsh.model.addPhysicalGroup(1, right, tag=2)
+        gmsh.model.setPhysicalName(1, 2, "Right")
+        gmsh.model.addPhysicalGroup(1, top, tag=3)
+        gmsh.model.setPhysicalName(1, 3, "Top")
+        gmsh.model.addPhysicalGroup(1, left, tag=4)
+        gmsh.model.setPhysicalName(1, 4, "Left")
 
         circle_surfaces = [tag for tag in circle_tags]
         gmsh.model.addPhysicalGroup(2, circle_surfaces, tag=1)
@@ -141,14 +166,17 @@ class MeshGenerator:
 
         gmsh.model.mesh.generate(2)
 
-        mesh, cell_tags, facet_tags = gmshio.model_to_mesh(gmsh.model, comm, 0, gdim=2)
+        mesh, cell_tags, facet_tags, *rest = gmshio.model_to_mesh(gmsh.model, comm, 0, gdim=2)
         mesh.topology.create_entities(mesh.topology.dim - 1)
         mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
 
+        cell_tags.name = "cell_tags"
+        facet_tags.name = "facet_tags"
+
         with XDMFFile(comm, save_path, "w") as xdmf:
             xdmf.write_mesh(mesh)
-            xdmf.write_meshtags(cell_tags, mesh.geometry)
-            xdmf.write_meshtags(facet_tags, mesh.geometry)
+            xdmf.write_meshtags(cell_tags)
+            xdmf.write_meshtags(facet_tags)
 
         if visualize:
             try:

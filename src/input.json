@@ -1,0 +1,12 @@
+{
+    "cycles":  1,
+    "layout":  [4, 4],
+    "size":  0.01,
+    "circles":  10,
+    "randomized_max_radius":  0.5,
+    "distribution":  "gaussian",
+    "set_circle_radius":  0.5,
+    "mesh_element_size":  0.1,
+    "randomized_radius":  true,
+    "min_fraction_inside":  0.2
+}
