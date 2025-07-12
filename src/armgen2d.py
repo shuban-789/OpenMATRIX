@@ -121,9 +121,16 @@ class MeshGenerator:
                 circle_tags.append(self.add_circle(px, py, circle_radius))
 
         gmsh.model.occ.synchronize()
-        gmsh.model.occ.intersect([(2, tag) for tag in circle_tags], [(2, rect)], removeTool=False)
-        gmsh.model.occ.synchronize()
-        gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
+
+        valid_circle_tags = []
+        for tag in circle_tags:
+            try:
+                gmsh.model.occ.getCenterOfMass(2, tag)
+                valid_circle_tags.append(tag)
+            except:
+                pass
+
+        gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in valid_circle_tags])
         gmsh.model.occ.synchronize()
 
         all_edges = gmsh.model.getEntities(dim=1)
@@ -155,7 +162,7 @@ class MeshGenerator:
         gmsh.model.addPhysicalGroup(1, left, tag=4)
         gmsh.model.setPhysicalName(1, 4, "Left")
 
-        circle_surfaces = [tag for tag in circle_tags]
+        circle_surfaces = valid_circle_tags
         gmsh.model.addPhysicalGroup(2, circle_surfaces, tag=1)
         gmsh.model.setPhysicalName(2, 1, "Circles")
 
@@ -182,6 +189,6 @@ class MeshGenerator:
             try:
                 gmsh.fltk.run()
             except Exception as e:
-                print(f"Visualization failed: {e}")
+                pass
 
         gmsh.finalize()

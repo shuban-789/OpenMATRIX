@@ -3,6 +3,7 @@ import sys
 import os
 import subprocess
 import json
+import csv
 
 # WARNING: Moving this file may break functionality due to relative paths.
 # Make sure to move this file carefully and ensure /records is a directory
@@ -10,11 +11,23 @@ import json
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 RECORDS_PATH = os.path.join(SCRIPT_PATH, "..", "records")
+RESULTS_PATH = os.path.join(SCRIPT_PATH, "..", "results")
+
+
 
 def genmeshes():
     json_file = open(os.path.join(SCRIPT_PATH, "input.json"), "r")
     fields = json.load(json_file)
     json_file.close()
+
+    csv_name = os.path.join(RESULTS_PATH, "data.csv")
+    os.system("touch " + csv_name)
+    csv_file = open(csv_name, "w", newline="")
+    writer = csv.writer(csv_file)
+    writer.writerow(['id', 'circles', 'vms_max'])
+    csv_file.close()
+
+    ramp_circle_value = fields["ramp_circles_params"]["start"]
 
     for i in range(fields["cycles"]):
         if not os.path.exists(RECORDS_PATH):
@@ -30,7 +43,7 @@ def genmeshes():
             layout=fields["layout"],
             size=fields["size"],
             mesh_element_size=fields["mesh_element_size"],
-            circles=fields["circles"],
+            circles=fields["circles"] if not fields["ramp_circles"] else ramp_circle_value,
             randomized_max_radius=fields["randomized_max_radius"],
             distribution=fields["distribution"],
             set_circle_radius=fields["set_circle_radius"],
@@ -40,15 +53,27 @@ def genmeshes():
         generator.generate(save_path=mesh_save_path, visualize=False)
 
         analysis_path = os.path.join(SCRIPT_PATH, "analysis_v2.py")
+        model_path = os.path.join(SCRIPT_PATH, "model.py")
         try:
             subprocess.run(
-                ["mpirun", "-np", "1", "python3", analysis_path, mesh_save_path],
+                ["mpirun", "-np", "1", "python3", analysis_path, mesh_save_path, RESULTS_PATH, os.path.join(SCRIPT_PATH, "input.json"), str(generator.circles)],
                 cwd=path_name,
                 check=True
             )
             print(f"Analysis complete for mesh {i}")
         except subprocess.CalledProcessError as e:
             print(f"Analysis failed for mesh {i}: {e}")
+        ramp_circle_value += fields["ramp_circles_params"]["step"]
+        
+    try:
+        subprocess.run(
+            ["python3", model_path, "-m", RESULTS_PATH],
+            check=True
+        )
+        print(f"Model completed")
+    except subprocess.CalledProcessError as e:
+        print(f"Modelling Failed: {e}")
+
 
 def main():
     if len(sys.argv) > 1:

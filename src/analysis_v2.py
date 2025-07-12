@@ -9,10 +9,16 @@ from petsc4py import PETSc
 from dolfinx import fem, io
 from dolfinx.io import gmshio
 import ufl
+import csv
+import json
+import re
+import os
 
 comm = MPI.COMM_WORLD
 mesh_file = sys.argv[1] if len(sys.argv) > 1 else "square_with_circle.msh"
-
+results_path = sys.argv[2] if len(sys.argv) > 2 else "results.csv"
+json_path = sys.argv[3] if len(sys.argv) > 3 else "input.json"
+circles = int(sys.argv[4]) if len(sys.argv) > 4 else 10
 
 # ----------------------------------------------------------------------
 # Read mesh & tags from the .msh file generated in Gmsh
@@ -142,3 +148,17 @@ vms_arr = vms.x.array
 max_vms = np.max(vms_arr)
 if comm.rank == 0:
     print(f"Max von Mises stress: {max_vms/1e6:.3f} MPa")
+
+# Save results to CSV, read potential analysis inputs from JSON
+json_file = open(json_path, "r")
+fields = json.load(json_file)
+
+mesh_basename = os.path.basename(mesh_file)
+match = re.search(r'mesh(\d+)', mesh_basename)
+mesh_id = match.group(1) if match else "-1"
+
+csv_file = open(results_path + "/data.csv", "a", newline="")
+writer = csv.writer(csv_file)
+writer.writerow([int(mesh_id), circles, max_vms])
+csv_file.close()
+json_file.close()
