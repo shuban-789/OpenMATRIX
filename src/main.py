@@ -48,15 +48,25 @@ def genmeshes():
             distribution=fields["distribution"],
             set_circle_radius=fields["set_circle_radius"],
             randomized_radius=fields["randomized_radius"],
-            min_fraction_inside=fields["min_fraction_inside"]
+            min_fraction_inside=fields["min_fraction_inside"],
         )
         generator.generate(save_path=mesh_save_path, visualize=False)
 
         analysis_path = os.path.join(SCRIPT_PATH, "analysis_v2.py")
         model_path = os.path.join(SCRIPT_PATH, "model.py")
         try:
+            create_files = "0"
+            if fields["create_mesh_files"]:
+                create_files = "1"
             subprocess.run(
-                ["mpirun", "-np", "1", "python3", analysis_path, mesh_save_path, RESULTS_PATH, os.path.join(SCRIPT_PATH, "input.json"), str(generator.circles)],
+                [
+                    "mpirun", "-np", "1", "python3", 
+                    analysis_path, mesh_save_path, 
+                    RESULTS_PATH, 
+                    os.path.join(SCRIPT_PATH, "input.json"), 
+                    str(generator.circles), 
+                    create_files
+                ],
                 cwd=path_name,
                 check=True
             )

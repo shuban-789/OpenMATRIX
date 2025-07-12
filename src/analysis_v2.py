@@ -19,6 +19,7 @@ mesh_file = sys.argv[1] if len(sys.argv) > 1 else "square_with_circle.msh"
 results_path = sys.argv[2] if len(sys.argv) > 2 else "results.csv"
 json_path = sys.argv[3] if len(sys.argv) > 3 else "input.json"
 circles = int(sys.argv[4]) if len(sys.argv) > 4 else 10
+create_files = sys.argv[5] if len(sys.argv) > 5 else "0"
 
 # ----------------------------------------------------------------------
 # Read mesh & tags from the .msh file generated in Gmsh
@@ -112,9 +113,11 @@ problem = fem.petsc.LinearProblem(
 )
 uh = problem.solve()
 uh.name = "displacement"
-with io.XDMFFile(comm, "displacement.xdmf", "w") as out:
-    out.write_mesh(mesh)
-    out.write_function(uh)
+
+if create_files == "1":
+    with io.XDMFFile(comm, "displacement.xdmf", "w") as out:
+        out.write_mesh(mesh)
+        out.write_function(uh)
 
 # ----------------------------------------------------------------------
 # Compute and save stress
@@ -139,9 +142,10 @@ vms = proj_problem.solve()
 vms.name = "vonMises"
 
 # Write results to XDMF
-with io.XDMFFile(comm, "vonMises.xdmf", "w") as out:
-    out.write_mesh(mesh)
-    out.write_function(vms)
+if create_files == "1":
+    with io.XDMFFile(comm, "vonMises.xdmf", "w") as out:
+        out.write_mesh(mesh)
+        out.write_function(vms)
 
 # Print max von Mises
 vms_arr = vms.x.array
