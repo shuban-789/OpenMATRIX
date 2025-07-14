@@ -1,5 +1,5 @@
 {
-    "cycles":  10,
+    "cycles":  100,
     "layout":  [4, 4],
     "size":  0.01,
     "circles":  10,
@@ -15,5 +15,5 @@
     "randomized_radius":  true,
     "min_fraction_inside":  0.2,
     "create_mesh_files":  false,
-    "model_form":  "plot"
+    "model_form":  "histogram"
 }

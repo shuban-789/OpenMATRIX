@@ -24,10 +24,18 @@ def genmeshes():
     os.system("touch " + csv_name)
     csv_file = open(csv_name, "w", newline="")
     writer = csv.writer(csv_file)
-    writer.writerow(['id', 'circles', 'vms_max'])
+    writer.writerow(['id', 'circles', 'vms_max', 'distribution'])
     csv_file.close()
 
     ramp_circle_value = fields["ramp_circles_params"]["start"]
+
+    model = fields["model_form"]
+
+    arg = ""
+    if model == "plot":
+        arg = "-m"
+    elif model == "histogram":
+        arg = "-b"
 
     for i in range(fields["cycles"]):
         if not os.path.exists(RECORDS_PATH):
@@ -52,7 +60,7 @@ def genmeshes():
         )
         generator.generate(save_path=mesh_save_path, visualize=False)
 
-        analysis_path = os.path.join(SCRIPT_PATH, "analysis_v2.py")
+        analysis_path = os.path.join(SCRIPT_PATH, "analysis.py")
         model_path = os.path.join(SCRIPT_PATH, "model.py")
         try:
             create_files = "0"
@@ -64,7 +72,6 @@ def genmeshes():
                     analysis_path, mesh_save_path, 
                     RESULTS_PATH, 
                     os.path.join(SCRIPT_PATH, "input.json"), 
-                    str(generator.circles), 
                     create_files
                 ],
                 cwd=path_name,
@@ -77,7 +84,7 @@ def genmeshes():
         
     try:
         subprocess.run(
-            ["python3", model_path, "-m", RESULTS_PATH],
+            ["python3", model_path, arg, RESULTS_PATH],
             check=True
         )
         print(f"Model completed")

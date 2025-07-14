@@ -5,6 +5,8 @@ from scipy.stats import truncnorm
 import gmsh
 import random
 import math
+import json
+import os
 
 class MeshGenerator:
     def __init__(self, layout, size, circles, randomized_max_radius, distribution,
@@ -21,6 +23,8 @@ class MeshGenerator:
         self.randomized_radius = randomized_radius
         self.placed_circles = []
         self.min_fraction_inside = min_fraction_inside
+        self.circle_area_sum = 0.0
+        self.square_area_sum = self.layout_x * self.layout_y
 
     def check_circ_overlap(self, x1, y1, r1, x2, y2, r2) -> bool:
         d = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
@@ -184,6 +188,20 @@ class MeshGenerator:
             xdmf.write_mesh(mesh)
             xdmf.write_meshtags(cell_tags)
             xdmf.write_meshtags(facet_tags)
+
+        self.circle_area_sum = sum(math.pi * r * r for _, _, r in self.placed_circles)
+        distribution = (self.circle_area_sum / self.square_area_sum) * 100
+
+        data = {
+            "id": rank,
+            "circles": self.circles,
+            "distribution": distribution
+        }
+
+        save_dir = os.path.dirname(save_path)
+        json_path = os.path.join(save_dir, "meshinfo.json")
+
+        json.dump(data, open(json_path, "w"))
 
         if visualize:
             try:
