@@ -83,7 +83,7 @@ def controller():
         generate_matplot(x_field, y_field)
     elif sys.argv[1] == "-b":
         x_field = "vms_max"
-        y_field = "distribution"
+        y_field = "area_fraction"
         generate_binned_histogram(x_field, y_field, bins=10)
     else:
         print("Usage: python3 main.py -m")

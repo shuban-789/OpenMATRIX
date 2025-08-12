@@ -1,4 +1,4 @@
-import armgen2d
+import openmatrix as opmx
 import sys
 import os
 import subprocess
@@ -24,10 +24,11 @@ def genmeshes():
     os.system("touch " + csv_name)
     csv_file = open(csv_name, "w", newline="")
     writer = csv.writer(csv_file)
-    writer.writerow(['id', 'circles', 'vms_max', 'distribution'])
+    writer.writerow(['id', 'circles', 'vms_max', 'area_fraction', 'size'])
     csv_file.close()
 
     ramp_circle_value = fields["ramp_circles_params"]["start"]
+    ramp_layout_value = [fields["ramp_layout_params"]["start_x"], fields["ramp_layout_params"]["start_y"]]
 
     model = fields["model_form"]
 
@@ -47,16 +48,17 @@ def genmeshes():
         mesh_save_path = path_name + "/mesh" + str(i) + ".xdmf"
         print("Generating mesh " + str(i) + " stored at " + mesh_save_path)
 
-        generator = armgen2d.MeshGenerator(
-            layout=fields["layout"],
+        generator = opmx.MeshGenerator(
+            layout=fields["layout"] if not fields["ramp_layout"] else ramp_layout_value,
             size=fields["size"],
             mesh_element_size=fields["mesh_element_size"],
             circles=fields["circles"] if not fields["ramp_circles"] else ramp_circle_value,
             randomized_max_radius=fields["randomized_max_radius"],
-            distribution=fields["distribution"],
+            circ_distribution_type=fields["distribution"],
             set_circle_radius=fields["set_circle_radius"],
             randomized_radius=fields["randomized_radius"],
             min_fraction_inside=fields["min_fraction_inside"],
+            circ_af=[fields["control_af"], fields["af_options"]["const_percentage"], fields["af_options"]["error_bound_percentage"]]
         )
         generator.generate(save_path=mesh_save_path, visualize=False)
 
@@ -81,6 +83,8 @@ def genmeshes():
         except subprocess.CalledProcessError as e:
             print(f"Analysis failed for mesh {i}: {e}")
         ramp_circle_value += fields["ramp_circles_params"]["step"]
+        ramp_layout_value[0] += fields["ramp_layout_params"]["step_x"]
+        ramp_layout_value[1] += fields["ramp_layout_params"]["step_y"]
         
     try:
         subprocess.run(

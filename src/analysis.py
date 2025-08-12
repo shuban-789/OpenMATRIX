@@ -38,6 +38,8 @@ with io.XDMFFile(comm, mesh_file, "r") as xdmf:
     mesh.topology.create_entities(dim=1)
     cell_tags = xdmf.read_meshtags(mesh, name="cell_tags")
     facet_tags = xdmf.read_meshtags(mesh, name="facet_tags")
+    print("Unique cell tags:", np.unique(cell_tags.values))
+    print("Unique facet tags:", np.unique(facet_tags.values))
 
 # ----------------------------------------------------------------------
 # Function space and material properties
@@ -157,12 +159,13 @@ input_fields = json.load(input_json_file)
 mesh_info = open(os.path.join(os.path.dirname(mesh_file), "meshinfo.json"), "r")
 mesh_info_data = json.load(mesh_info)
 
-distribution = mesh_info_data["distribution"]
+af = mesh_info_data["area_fraction"]
 mesh_id = mesh_info_data["id"]
 circles = mesh_info_data["circles"]
+size = mesh_info_data["size"]
 
 csv_file = open(results_path + "/data.csv", "a", newline="")
 writer = csv.writer(csv_file)
-writer.writerow([int(mesh_id), circles, max_vms, distribution])
+writer.writerow([int(mesh_id), circles, max_vms, af, size])
 csv_file.close()
 input_json_file.close()

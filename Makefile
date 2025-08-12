@@ -7,5 +7,8 @@ clean:
 test:
 	python3 src/main.py -g 1
 
+resclear:
+	rm -f results/*
+
 default:
 	python3 src/main.py -g
