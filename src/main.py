@@ -35,8 +35,10 @@ def genmeshes():
     arg = ""
     if model == "plot":
         arg = "-m"
-    elif model == "histogram":
+    elif model == "histogramxy":
         arg = "-b"
+    elif model == "histcount":
+        arg = "-bc"
 
     for i in range(fields["cycles"]):
         if not os.path.exists(RECORDS_PATH):
