@@ -5,6 +5,7 @@ from rich import box
 import openmatrix as opmx
 import sys
 import os
+import parser
 import subprocess
 import json
 import csv
@@ -19,12 +20,12 @@ RESULTS_PATH = os.path.join(SCRIPT_PATH, "..", "results")
 CONFIG_NAME = "config.json"
 
 console = Console()
+new_parser = parser.Parser()
+fields = new_parser.parsejson(open(os.path.join(SCRIPT_PATH, CONFIG_NAME), "r"))
 
 def genmeshes():
-    json_file = open(os.path.join(SCRIPT_PATH, CONFIG_NAME), "r")
-    fields = json.load(json_file)
-    json_file.close()
 
+    # CSV Write
     csv_name = os.path.join(RESULTS_PATH, "data.csv")
     os.system("touch " + csv_name)
     csv_file = open(csv_name, "w", newline="")
@@ -32,6 +33,7 @@ def genmeshes():
     writer.writerow(['id', 'circles', 'vms_max', 'vms_mean', 'area_fraction', 'size'])
     csv_file.close()
 
+    
     ramp_circle_value = fields["ramp_circles_params"]["start"]
     ramp_layout_value = [fields["ramp_layout_params"]["start_x"], fields["ramp_layout_params"]["start_y"]]
 
@@ -57,14 +59,15 @@ def genmeshes():
         mesh_save_path = path_name + "/mesh" + str(i) + ".xdmf"
         console.log(f"[green]Generating mesh {str(i)} stored at {mesh_save_path}[/green]")
 
+        # TODO: Organize this clutter
         generator = opmx.MeshGenerator(
             layout=fields["layout"] if not fields["ramp_layout"] else ramp_layout_value,
             size=fields["size"],
             mesh_element_size=fields["mesh_element_size"],
-            circles=fields["circles"] if not fields["ramp_circles"] else ramp_circle_value,
-            randomized_max_radius=fields["randomized_max_radius"],
+            circles=fields["control_circles_params"]["circles"] if not fields["ramp_circles"] else ramp_circle_value,
+            randomized_max_radius=fields["random_params"]["randomized_max_radius"],
             circ_distribution_type=fields["distribution"],
-            set_circle_radius=fields["set_circle_radius"],
+            set_circle_radius=fields["control_circles_params"]["set_circle_radius"],
             randomized_radius=fields["randomized_radius"],
             min_fraction_inside=fields["min_fraction_inside"],
             circ_af=[fields["control_af"], fields["af_options"]["const_percentage"], fields["af_options"]["error_bound_percentage"]]
@@ -106,9 +109,6 @@ def genmeshes():
         console.log(f"[green]Modeling Failed: {e}[/green]")
 
 def intro():
-    json_file = open(os.path.join(SCRIPT_PATH, CONFIG_NAME), "r")
-    fields = json.load(json_file)
-
     model = "Mutable Circles Count Analysis"
     if fields["control_af"]:
         model = "Mutable Area Fraction Analysis"

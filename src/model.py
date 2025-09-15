@@ -4,11 +4,15 @@ import numpy as np
 import os
 import sys
 import csv
-import json
+import parser
 
+SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
+CONFIG_NAME = "config.json"
 results_path = sys.argv[2] if len(sys.argv) > 1 else "results"
 results_file = os.path.join(results_path, "data.csv")
 console = Console()
+new_parser = parser.Parser()
+fields = new_parser.parsejson(open(os.path.join(SCRIPT_PATH, CONFIG_NAME), "r"))
 
 def generate_matplot(x_field, y_field):
     x_data = []
@@ -39,9 +43,7 @@ def generate_matplot(x_field, y_field):
     plt.show()
 
 def generate_binned_count(x_field, y_field, bins=10):
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), 'r') as f:
-        data = json.load(f)
-        target_area_fraction = data["af_options"]["const_percentage"]
+    target_area_fraction = fields["af_options"]["const_percentage"]
 
     x_data = []
 
@@ -171,9 +173,7 @@ def generate_binned_histogram(x_field, y_field, bins=10):
 def generate_binned_histogram_mean_vis(x_field, bins=10):
     vms_data = []
 
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), 'r') as f:
-        data = json.load(f)
-        target_area_fraction = data["af_options"]["const_percentage"]
+    target_area_fraction = fields["af_options"]["const_percentage"]
 
     with open(results_file, mode='r') as file:
         reader = csv.DictReader(file)

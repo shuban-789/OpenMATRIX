@@ -1,5 +1,16 @@
 {
     "cycles":  6,
+    "layout":  [4, 4],
+    "size":  0.01,
+    "distribution":  "gaussian",
+    "mesh_element_size":  0.1,
+    "min_fraction_inside":  0.2,
+    "model_form":  "meanvis",
+    "create_mesh_files":  false,
+    "randomized_radius":  true,
+    "random_params": {
+        "randomized_max_radius":  0.5
+    },
     "ramp_layout": false,
     "ramp_layout_params": {
         "start_x": 1,
@@ -12,20 +23,14 @@
         "const_percentage": 30.0,
         "error_bound_percentage": 1.5
     },
-    "layout":  [4, 4],
-    "size":  0.01,
-    "circles":  10,
     "ramp_circles":  false,
     "ramp_circles_params":  {
         "start":  3,
         "step":  2
     },
-    "randomized_max_radius":  0.5,
-    "distribution":  "gaussian",
-    "set_circle_radius":  0.5,
-    "mesh_element_size":  0.1,
-    "randomized_radius":  true,
-    "min_fraction_inside":  0.2,
-    "create_mesh_files":  false,
-    "model_form":  "meanvis"
+    "control_circles": false,
+    "control_circles_params": {
+        "set_circle_radius": 0.5,
+        "circles": 10
+    }
 }

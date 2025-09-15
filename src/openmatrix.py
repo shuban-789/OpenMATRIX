@@ -113,7 +113,7 @@ class MeshGenerator:
                         else:
                             raise ValueError("Unsupported distribution type.")
                     else:
-                        circle_radius = self.set_circle_radius
+                        raise ValueError("Must have randomized radius enabled. Unrandomized is only for set circles")
 
                     cx = random.uniform(-circle_radius, self.layout_x + circle_radius)
                     cy = random.uniform(-circle_radius, self.layout_y + circle_radius)
