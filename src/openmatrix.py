@@ -2,12 +2,16 @@
 from mpi4py import MPI
 from dolfinx.io import gmshio, XDMFFile
 from scipy.stats import truncnorm
+from rich.progress import Progress
+from rich.console import Console
 import gmsh
 import random
 import math
 import json
 import os
 import re
+
+console = Console()
 
 class MeshGenerator:
     def __init__(self, layout, size, circles, randomized_max_radius, circ_distribution_type,
@@ -68,6 +72,7 @@ class MeshGenerator:
         gmsh.initialize()
         gmsh.model.add("Mesh Result")
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", self.mesh_element_size)
+        gmsh.option.setNumber("General.Terminal", 0)
 
         rect, rect_edges = self.create_rect()
         circle_tags = []
@@ -80,79 +85,86 @@ class MeshGenerator:
         lower_bound = (target_ratio - self.error_bound) / 100.0 * self.square_area_sum
         upper_bound = (target_ratio + self.error_bound) / 100.0 * self.square_area_sum
 
-        while True:
-            if lower_bound <= self.circle_area_sum <= upper_bound:
-                break
-            if attempts > max_attempts:
-                print(f"Max attempts ({max_attempts}) reached.")
-                break
-            attempts += 1
+        with Progress() as progress:
+            task = progress.add_task(
+                f"[cyan]Generating mesh",
+                total=upper_bound,
+            )
+            while True:
+                if lower_bound <= self.circle_area_sum <= upper_bound:
+                    break
+                if attempts > max_attempts:
+                    console.log(f"[red]Max attempts ({max_attempts}) exhausted.[/red]")
+                    break
+                attempts += 1
 
-            valid_placement = False
-            while not valid_placement:
-                if self.randomized_radius:
-                    if self.circ_distribution_type == "uniform":
-                        circle_radius = random.uniform(0.1, self.randomized_max_radius)
-                    elif self.circ_distribution_type == "gaussian":
-                        circle_radius = self.truncated_gaussian(
-                            rmin=0.1,
-                            rmax=self.randomized_max_radius,
-                            rmean=(self.randomized_max_radius + 0.1) / 2,
-                            rstd=(self.randomized_max_radius - 0.1) / 4
-                        )
+                valid_placement = False
+                while not valid_placement:
+                    if self.randomized_radius:
+                        if self.circ_distribution_type == "uniform":
+                            circle_radius = random.uniform(0.1, self.randomized_max_radius)
+                        elif self.circ_distribution_type == "gaussian":
+                            circle_radius = self.truncated_gaussian(
+                                rmin=0.1,
+                                rmax=self.randomized_max_radius,
+                                rmean=(self.randomized_max_radius + 0.1) / 2,
+                                rstd=(self.randomized_max_radius - 0.1) / 4
+                            )
+                        else:
+                            raise ValueError("Unsupported distribution type.")
                     else:
-                        raise ValueError("Unsupported distribution type.")
+                        circle_radius = self.set_circle_radius
+
+                    cx = random.uniform(-circle_radius, self.layout_x + circle_radius)
+                    cy = random.uniform(-circle_radius, self.layout_y + circle_radius)
+
+                    potential_positions = [(cx, cy)]
+
+                    if cx - circle_radius < 0:
+                        potential_positions.append((cx + self.layout_x, cy))
+                    if cx + circle_radius > self.layout_x:
+                        potential_positions.append((cx - self.layout_x, cy))
+                    if cy - circle_radius < 0:
+                        potential_positions.append((cx, cy + self.layout_y))
+                    if cy + circle_radius > self.layout_y:
+                        potential_positions.append((cx, cy - self.layout_y))
+
+                    if cx - circle_radius < 0 and cy - circle_radius < 0:
+                        potential_positions.append((cx + self.layout_x, cy + self.layout_y))
+                    if cx + circle_radius > self.layout_x and cy - circle_radius < 0:
+                        potential_positions.append((cx - self.layout_x, cy + self.layout_y))
+                    if cx - circle_radius < 0 and cy + circle_radius > self.layout_y:
+                        potential_positions.append((cx + self.layout_x, cy - self.layout_y))
+                    if cx + circle_radius > self.layout_x and cy + circle_radius > self.layout_y:
+                        potential_positions.append((cx - self.layout_x, cy - self.layout_y))
+
+                    valid_placement = all(
+                        not self.check_circ_overlap(px, py, circle_radius, x, y, r)
+                        for px, py in potential_positions
+                        for x, y, r in self.placed_circles
+                    ) and self.is_enough_inside(cx, cy, circle_radius)
+
+                new_area = math.pi * circle_radius ** 2
+                
+                self.placed_circles.append((cx, cy, circle_radius))
+                circle_tags.append(self.add_circle(cx, cy, circle_radius))
+                
+                for px, py in potential_positions[1:]:
+                    self.placed_circles.append((px, py, circle_radius))
+                    circle_tags.append(self.add_circle(px, py, circle_radius))
+                
+                self.circle_area_sum += new_area
+                placed_count += 1
+
+                if self.circle_area_sum > upper_bound:
+                    for _ in potential_positions:
+                        self.placed_circles.pop()
+                        tag = circle_tags.pop()
+                        gmsh.model.occ.remove([(2, tag)], recursive=True)
+                    self.circle_area_sum -= new_area
+                    placed_count -= 1
                 else:
-                    circle_radius = self.set_circle_radius
-
-                cx = random.uniform(-circle_radius, self.layout_x + circle_radius)
-                cy = random.uniform(-circle_radius, self.layout_y + circle_radius)
-
-                potential_positions = [(cx, cy)]
-
-                if cx - circle_radius < 0:
-                    potential_positions.append((cx + self.layout_x, cy))
-                if cx + circle_radius > self.layout_x:
-                    potential_positions.append((cx - self.layout_x, cy))
-                if cy - circle_radius < 0:
-                    potential_positions.append((cx, cy + self.layout_y))
-                if cy + circle_radius > self.layout_y:
-                    potential_positions.append((cx, cy - self.layout_y))
-
-                if cx - circle_radius < 0 and cy - circle_radius < 0:
-                    potential_positions.append((cx + self.layout_x, cy + self.layout_y))
-                if cx + circle_radius > self.layout_x and cy - circle_radius < 0:
-                    potential_positions.append((cx - self.layout_x, cy + self.layout_y))
-                if cx - circle_radius < 0 and cy + circle_radius > self.layout_y:
-                    potential_positions.append((cx + self.layout_x, cy - self.layout_y))
-                if cx + circle_radius > self.layout_x and cy + circle_radius > self.layout_y:
-                    potential_positions.append((cx - self.layout_x, cy - self.layout_y))
-
-                valid_placement = all(
-                    not self.check_circ_overlap(px, py, circle_radius, x, y, r)
-                    for px, py in potential_positions
-                    for x, y, r in self.placed_circles
-                ) and self.is_enough_inside(cx, cy, circle_radius)
-
-            new_area = math.pi * circle_radius ** 2
-            
-            self.placed_circles.append((cx, cy, circle_radius))
-            circle_tags.append(self.add_circle(cx, cy, circle_radius))
-            
-            for px, py in potential_positions[1:]:
-                self.placed_circles.append((px, py, circle_radius))
-                circle_tags.append(self.add_circle(px, py, circle_radius))
-            
-            self.circle_area_sum += new_area
-            placed_count += 1
-
-            if self.circle_area_sum > upper_bound:
-                for _ in potential_positions:
-                    self.placed_circles.pop()
-                    tag = circle_tags.pop()
-                    gmsh.model.occ.remove([(2, tag)], recursive=True)
-                self.circle_area_sum -= new_area
-                placed_count -= 1
+                    progress.update(task, completed=self.circle_area_sum)
 
         gmsh.model.occ.synchronize()
 
@@ -203,9 +215,10 @@ class MeshGenerator:
         
         background_surfaces = [tag for tag in all_surface_tags if tag not in circle_surfaces]
 
-        print(f"Total surfaces: {len(all_surface_tags)}")
-        print(f"Circle surfaces: {len(circle_surfaces)}")
-        print(f"Background surfaces: {len(background_surfaces)}")
+
+        console.log(f"[green]Total surfaces: {len(all_surface_tags)}[/green]")
+        console.log(f"[green]Circle surfaces: {len(circle_surfaces)}[/green]")
+        console.log(f"[green]Background surfaces: {len(background_surfaces)}[/green]")
 
         all_edges = gmsh.model.getEntities(dim=1)
         def midpoint(tag):
@@ -241,7 +254,7 @@ class MeshGenerator:
             gmsh.model.addPhysicalGroup(2, background_surfaces, tag=2)
             gmsh.model.setPhysicalName(2, 2, "Background")
         else:
-            print("WARNING: No background surfaces found!")
+            console.log("[red]WARNING: No background surfaces found![/red]")
 
         gmsh.model.mesh.generate(2)
 
@@ -264,7 +277,7 @@ class MeshGenerator:
         if match:
             n = int(match.group(1))
         else:
-            print("No match found.")
+            console.log("[red]No match found for sae path.[/red]")
             n = 0
 
         data = {
@@ -297,6 +310,7 @@ class MeshGenerator:
         gmsh.option.setNumber("Mesh.ElementOrder", 1)
         gmsh.option.setNumber("Mesh.SaveAll", 0)
         gmsh.option.setNumber("Mesh.SurfaceFaces", 1)
+        gmsh.option.setNumber("General.Terminal", 0)
 
         rect, rect_edges = self.create_rect()
         circle_tags = []
@@ -315,7 +329,7 @@ class MeshGenerator:
             if self.use_ratio and lower_bound <= self.circle_area_sum <= upper_bound:
                 break
             if attempts > max_attempts:
-                print(f"Max attempts ({max_attempts}) reached.")
+                console.log(f"[red]Max attempts ({max_attempts}) exhausted.[/red]")
                 break
             attempts += 1
 
@@ -384,7 +398,7 @@ class MeshGenerator:
                 self.circle_area_sum -= new_area
                 placed_count -= 1
 
-        print(f"Placed {placed_count} circles with tags: {circle_tags}")
+        console.log(f"[green]Placed {placed_count} circles with tags: {circle_tags}[/green]")
         gmsh.model.occ.synchronize()
 
         status, fragments = gmsh.model.occ.fragment([(2, rect)], [(2, tag) for tag in circle_tags])
@@ -422,8 +436,8 @@ class MeshGenerator:
         circle_surfaces = list(set(circle_surfaces))
         background_surfaces = [s[1] for s in all_surfaces if s[1] not in circle_surfaces]
 
-        print(f"Circle surfaces after fragmentation: {circle_surfaces}")
-        print(f"Background surfaces: {background_surfaces}")
+        console.log(f"[green]Circle surfaces after fragmentation: {circle_surfaces}[/green]")
+        console.log(f"[green]Background surfaces: {background_surfaces}[/green]")
 
         all_edges = gmsh.model.getEntities(dim=1)
 
@@ -482,7 +496,7 @@ class MeshGenerator:
         if match:
             n = int(match.group(1))
         else:
-            print("No match found.")
+            console.log("[red]No match found.[/red]")
 
         data = {
             "id": n,
@@ -505,8 +519,6 @@ class MeshGenerator:
 
     def generate(self, visualize, save_path):
         if self.use_ratio:
-            print("Model: Mutable Area Fraction Analysis")
             self.generate_from_af(visualize, save_path)
         else:
-            print("Model: Mutable Circles Count Analysis")
             self.generate_from_circles(visualize, save_path)

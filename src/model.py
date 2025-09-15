@@ -1,3 +1,4 @@
+from rich.console import Console
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -7,6 +8,7 @@ import json
 
 results_path = sys.argv[2] if len(sys.argv) > 1 else "results"
 results_file = os.path.join(results_path, "data.csv")
+console = Console()
 
 def generate_matplot(x_field, y_field):
     x_data = []
@@ -19,7 +21,7 @@ def generate_matplot(x_field, y_field):
                 x_data.append(float(row[x_field]))
                 y_data.append(float(row[y_field]))
             except ValueError:
-                print(f"Skipping row with invalid data: {row}")
+                console.log(f"[red]Skipping row with invalid data: {row}[/red]")
 
     plt.figure(figsize=(8, 5))
     plt.plot(x_data, y_data, marker='o', linestyle='-')
@@ -32,13 +34,12 @@ def generate_matplot(x_field, y_field):
     filename = f"{x_field}_{y_field}_mat.png"
     save_path = os.path.join(results_path, filename)
     plt.savefig(save_path)
-    print(f"Plot saved to: {save_path}")
+    console.log(f"[green]Plot saved to: {save_path}[/green]")
 
     plt.show()
 
 def generate_binned_count(x_field, y_field, bins=10):
-    # Load target area fraction from input.json
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'input.json'), 'r') as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), 'r') as f:
         data = json.load(f)
         target_area_fraction = data["af_options"]["const_percentage"]
 
@@ -50,12 +51,11 @@ def generate_binned_count(x_field, y_field, bins=10):
             try:
                 x_data.append(float(row[x_field]))
             except ValueError:
-                print(f"Skipping invalid row: {row}")
+                console.log(f"[red]Skipping invalid row: {row}[/red]")
 
     bin_counts = np.zeros(bins)
     bin_edges = np.linspace(min(x_data), max(x_data), bins + 1)
 
-    # Use right=True to include the last bin edge correctly
     for x in x_data:
         bin_index = np.digitize(x, bin_edges, right=True) - 1
         if 0 <= bin_index < bins:
@@ -63,7 +63,6 @@ def generate_binned_count(x_field, y_field, bins=10):
 
     bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
-    # Plot counts
     plt.figure(figsize=(8, 5))
     plt.bar(bin_centers, bin_counts, width=(bin_edges[1] - bin_edges[0]),
             align='center', edgecolor='black')
@@ -72,17 +71,21 @@ def generate_binned_count(x_field, y_field, bins=10):
     plt.ylabel(f"Count of {x_field} in bin")
     plt.title(f"Counts binned by {x_field} for target area fraction of {target_area_fraction}")
 
-    # Side note for target area fraction
-    plt.text(1.02, 0.5, f"Target area fraction: {target_area_fraction}",
-             transform=plt.gca().transAxes, rotation=90,
-             va='center', ha='left', fontsize=10, color='blue')
+    plt.annotate(
+        f"Below mean: {below_mean}\nAbove mean: {above_mean}",
+        xy=(0.98, 0.95), xycoords="axes fraction",
+        ha="right", va="top",
+        fontsize=10,
+        bbox=dict(facecolor="white", alpha=0.6, edgecolor="black")
+    )
+
 
     plt.tight_layout()
 
     filename = f"{x_field}_count_bins.png"
     save_path = os.path.join(results_path, filename)
     plt.savefig(save_path)
-    print(f"Binned count histogram saved to: {save_path}")
+    console.log(f"[green]Binned count histogram saved to: {save_path}[/green]")
     plt.show()
 
 def generate_binned_xy(x_field, y_field, bins=10):
@@ -96,7 +99,7 @@ def generate_binned_xy(x_field, y_field, bins=10):
                 x_data.append(float(row[x_field]))
                 y_data.append(float(row[y_field]))
             except ValueError:
-                print(f"Skipping invalid row: {row}")
+                console.log(f"[red]Skipping invalid row: {row}[/red]")
 
     bin_sums = np.zeros(bins)
     bin_counts = np.zeros(bins)
@@ -122,7 +125,7 @@ def generate_binned_xy(x_field, y_field, bins=10):
     filename = f"{x_field}_vs_{y_field}_binned.png"
     save_path = os.path.join(results_path, filename)
     plt.savefig(save_path)
-    print(f"Binned histogram saved to: {save_path}")
+    console.log(f"[green]Binned histogram saved to: {save_path}[/green]")
     plt.show()
 
 def generate_binned_histogram(x_field, y_field, bins=10):
@@ -136,7 +139,7 @@ def generate_binned_histogram(x_field, y_field, bins=10):
                 x_data.append(float(row[x_field]))
                 y_data.append(float(row[y_field]))
             except ValueError:
-                print(f"Skipping invalid row: {row}")
+                console.log(f"[red]Skipping invalid row: {row}[/red]")
 
     bin_sums = np.zeros(bins)
     bin_counts = np.zeros(bins)
@@ -162,24 +165,76 @@ def generate_binned_histogram(x_field, y_field, bins=10):
     filename = f"{x_field}_vs_{y_field}_binned.png"
     save_path = os.path.join(results_path, filename)
     plt.savefig(save_path)
-    print(f"Binned histogram saved to: {save_path}")
+    console.log(f"[green]Binned histogram saved to: {save_path}[/green]")
+    plt.show()
+
+def generate_binned_histogram_mean_vis(x_field, bins=10):
+    vms_data = []
+
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), 'r') as f:
+        data = json.load(f)
+        target_area_fraction = data["af_options"]["const_percentage"]
+
+    with open(results_file, mode='r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            try:
+                vms_data.append(float(row["vms_max"]))
+            except ValueError:
+                console.log(f"[red]Skipping invalid row: {row}[/red]")
+
+    if not vms_data:
+        console.log("[red]No valid vms_max data found.[/red]")
+        return
+
+    vms_mean = np.mean(vms_data)
+
+    plt.figure(figsize=(8, 5))
+    counts, bin_edges, _ = plt.hist(vms_data, bins=bins, edgecolor="black", alpha=0.7)
+
+    plt.axvline(vms_mean, color="red", linestyle="--", linewidth=2,
+                label=f"Mean vms_max = {vms_mean:.2f}")
+
+    below_mean = np.sum(np.array(vms_data) <= vms_mean)
+    above_mean = np.sum(np.array(vms_data) > vms_mean)
+
+    plt.text(vms_mean, max(counts) * 0.9,
+             f"Below mean: {below_mean}\nAbove mean: {above_mean}",
+             fontsize=10, ha="left", va="top",
+             bbox=dict(facecolor="white", alpha=0.6, edgecolor="black"))
+
+    plt.xlabel("vms_max")
+    plt.ylabel("Frequency")
+    plt.title(f"Counts binned by {x_field} for target area fraction of {target_area_fraction}")
+    plt.legend(loc="upper left")
+    plt.tight_layout()
+
+    filename = f"vms_max_distribution_area_{target_area_fraction}.png"
+    save_path = os.path.join(results_path, filename)
+    plt.savefig(save_path)
+    console.log(f"[green]VMS max histogram saved to: {save_path}[/green]")
     plt.show()
 
 
 def controller():
     if sys.argv[1] == "-m":
         x_field = "circles"
-        y_field = "vms_max"
+        y_field = "vms_mean"
         generate_matplot(x_field, y_field)
     elif sys.argv[1] == "-b":
-        x_field = "vms_max"
+        x_field = "vms_mean"
         y_field = "area_fraction"
         generate_binned_histogram(x_field, y_field, bins=10)
     elif sys.argv[1] == "-bc":
-        x_field = "vms_max"
+        x_field = "vms_mean"
         y_field = "area_fraction"
         generate_binned_count(x_field, y_field, bins=10)
+    elif sys.argv[1] == "-bv":
+        x_field = "vms_max"
+        targ = 20
+        generate_binned_histogram_mean_vis(x_field, bins=10)
     else:
+        console.log("[red]Please read command specifications for model.py[/red]")
         print("Usage: python3 main.py -m")
         print("This will generate a matplot model")
         print("\n")

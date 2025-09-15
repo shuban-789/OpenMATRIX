@@ -8,6 +8,7 @@ import numpy as np
 from petsc4py import PETSc
 from dolfinx import fem, io
 from dolfinx.io import gmshio
+from rich.console import Console
 import ufl
 import csv
 import json
@@ -19,6 +20,7 @@ mesh_file = sys.argv[1] if len(sys.argv) > 1 else "square_with_circle.msh"
 results_path = sys.argv[2] if len(sys.argv) > 2 else "results.csv"
 input_json_path = sys.argv[3] if len(sys.argv) > 3 else "input.json"
 create_files = sys.argv[4] if len(sys.argv) > 4 else "0"
+console = Console(force_terminal=True)
 
 # ----------------------------------------------------------------------
 # Read mesh & tags from the .msh file generated in Gmsh
@@ -38,8 +40,8 @@ with io.XDMFFile(comm, mesh_file, "r") as xdmf:
     mesh.topology.create_entities(dim=1)
     cell_tags = xdmf.read_meshtags(mesh, name="cell_tags")
     facet_tags = xdmf.read_meshtags(mesh, name="facet_tags")
-    print("Unique cell tags:", np.unique(cell_tags.values))
-    print("Unique facet tags:", np.unique(facet_tags.values))
+    console.log(f"[green]Unique cell tags: {np.unique(cell_tags.values)}[/green]")
+    console.log(f"[green]Unique facet tags: {np.unique(facet_tags.values)}[/green]")
 
 # ----------------------------------------------------------------------
 # Function space and material properties
@@ -149,8 +151,10 @@ if create_files == "1":
 # Print max von Mises
 vms_arr = vms.x.array
 max_vms = np.max(vms_arr)
+mean_vms = np.mean(vms_arr)
+
 if comm.rank == 0:
-    print(f"Max von Mises stress: {max_vms/1e6:.3f} MPa")
+    console.log(f"[green]Max von Mises stress: {max_vms/1e6:.3f} MPa[/green]")
 
 # Save results to CSV, read potential analysis inputs from JSON
 input_json_file = open(input_json_path, "r")
@@ -166,6 +170,6 @@ size = mesh_info_data["size"]
 
 csv_file = open(results_path + "/data.csv", "a", newline="")
 writer = csv.writer(csv_file)
-writer.writerow([int(mesh_id), circles, max_vms, af, size])
+writer.writerow([int(mesh_id), circles, max_vms, mean_vms, af, size])
 csv_file.close()
 input_json_file.close()
