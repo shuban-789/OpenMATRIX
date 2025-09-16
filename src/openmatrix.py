@@ -277,7 +277,7 @@ class MeshGenerator:
         if match:
             n = int(match.group(1))
         else:
-            console.log("[red]No match found for sae path.[/red]")
+            console.log("[red]No match found for save path.[/red]")
             n = 0
 
         data = {
