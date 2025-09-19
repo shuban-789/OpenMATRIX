@@ -65,10 +65,9 @@ If you do not have the fenics environment setup on your host, you may use a Dock
 Interactive shell:
 
 ```
-sudo docker run -it --rm -v "$(pwd)":/workspace:z dolfinx/dolfinx:v0.6.0
-```
-```
-pip install rich
+sudo docker pull dolfinx/dolfinx:v0.9.0
+sudo docker run -it --rm -v "$(pwd)":/workspace:z dolfinx/dolfinx:v0.9.0
+pip install rich pathlib
 ```
 ```
 make

@@ -7,8 +7,8 @@ class Parser:
         pass
 
     def parsejson(self, path_obj):
-        fields = json.load(path_obj)
-        path_obj.close()
+        with open(path_obj, "r") as f:
+            fields = json.load(f)
         return fields
 
     def parsecsv(self, path_obj):

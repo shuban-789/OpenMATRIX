@@ -7,6 +7,7 @@ from mpi4py import MPI
 import numpy as np
 from petsc4py import PETSc
 from dolfinx import fem, io
+from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import gmshio
 from rich.console import Console
 import ufl
@@ -38,6 +39,7 @@ console = Console(force_terminal=True)
 with io.XDMFFile(comm, mesh_file, "r") as xdmf:
     mesh = xdmf.read_mesh()
     mesh.topology.create_entities(dim=1)
+    mesh.topology.create_connectivity(mesh.topology.dim - 1, mesh.topology.dim)
     cell_tags = xdmf.read_meshtags(mesh, name="cell_tags")
     facet_tags = xdmf.read_meshtags(mesh, name="facet_tags")
     console.log(f"[green]Unique cell tags: {np.unique(cell_tags.values)}[/green]")
@@ -46,7 +48,7 @@ with io.XDMFFile(comm, mesh_file, "r") as xdmf:
 # ----------------------------------------------------------------------
 # Function space and material properties
 # ----------------------------------------------------------------------
-V = fem.VectorFunctionSpace(mesh, ("CG", 1))
+V = fem.functionspace(mesh, ("CG", 1, (mesh.geometry.dim,)))
 
 # Isotropic data 
 E_LPSCl, nu_LPSCl = 7.8e9, 0.33      # inclusion
@@ -61,16 +63,16 @@ lam1, mu1 = lame(E_LPSCl, nu_LPSCl)
 lam2, mu2 = lame(E_Si, nu_Si)
 
 # Create DG0 spaces for lam and mu
-DG0 = fem.FunctionSpace(mesh, ("DG", 0))
+DG0 = fem.functionspace(mesh, ("DG", 0))
 lam = fem.Function(DG0)
 mu = fem.Function(DG0)
 
 # Assign values based on cell_tags
 cell_values = cell_tags.values
-lam.vector.array[cell_values == 1] = lam1
-lam.vector.array[cell_values == 2] = lam2
-mu.vector.array[cell_values == 1]  = mu1
-mu.vector.array[cell_values == 2]  = mu2
+lam.x.array[cell_values == 1] = lam1
+lam.x.array[cell_values == 2] = lam2
+mu.x.array[cell_values == 1]  = mu1
+mu.x.array[cell_values == 2]  = mu2
 lam.x.scatter_forward()
 mu.x.scatter_forward()
 
@@ -136,7 +138,7 @@ vms_expr = ufl.sqrt(3.0/2.0 * ufl.inner(dev, dev))
 u_vms, v_vms = ufl.TrialFunction(DG0), ufl.TestFunction(DG0)
 l_proj = ufl.inner(vms_expr, v_vms)*dx
 a_proj = ufl.inner(u_vms, v_vms)*dx
-proj_problem = fem.petsc.LinearProblem(
+proj_problem = LinearProblem(
     a_proj, l_proj, 
     petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 vms = proj_problem.solve()

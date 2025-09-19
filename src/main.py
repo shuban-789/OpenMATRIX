@@ -2,6 +2,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich import box
+from pathlib import Path
+import argparse
 import openmatrix as opmx
 import sys
 import os
@@ -14,19 +16,18 @@ import csv
 # Make sure to move this file carefully and ensure /records is a directory
 # behind this script.
 
-SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
-RECORDS_PATH = os.path.join(SCRIPT_PATH, "..", "records")
-RESULTS_PATH = os.path.join(SCRIPT_PATH, "..", "results")
-CONFIG_NAME = "config.json"
-
+script_path = Path(__file__).resolve().parent
+records_path = script_path.parent / "records"
+results_path = script_path.parent / "results"
+config = script_path.parent / "config.json"
 console = Console()
-new_parser = parser.Parser()
-fields = new_parser.parsejson(open(os.path.join(SCRIPT_PATH, CONFIG_NAME), "r"))
+data_parser = parser.Parser()
+fields = data_parser.parsejson(config)
 
 def genmeshes():
 
     # CSV Write
-    csv_name = os.path.join(RESULTS_PATH, "data.csv")
+    csv_name = os.path.join(results_path, "data.csv")
     os.system("touch " + csv_name)
     csv_file = open(csv_name, "w", newline="")
     writer = csv.writer(csv_file)
@@ -50,13 +51,13 @@ def genmeshes():
         arg = "-bv"
 
     for i in range(fields["cycles"]):
-        if not os.path.exists(RECORDS_PATH):
-            os.mkdir(RECORDS_PATH)
-        path_name = RECORDS_PATH + "/" + str(i)
+        if not os.path.exists(records_path):
+            os.mkdir(records_path)
+        path_name = records_path / str(i)
         if os.path.exists(path_name):
-            os.system("rm -rf " + path_name)
+            os.system("rm -rf " + str(path_name))
         os.mkdir(path_name)
-        mesh_save_path = path_name + "/mesh" + str(i) + ".xdmf"
+        mesh_save_path = path_name / ("mesh" + str(i) + ".xdmf")
         console.log(f"[green]Generating mesh {str(i)} stored at {mesh_save_path}[/green]")
 
         # TODO: Organize this clutter
@@ -74,8 +75,8 @@ def genmeshes():
         )
         generator.generate(save_path=mesh_save_path, visualize=False)
 
-        analysis_path = os.path.join(SCRIPT_PATH, "analysis.py")
-        model_path = os.path.join(SCRIPT_PATH, "model.py")
+        analysis_path = os.path.join(script_path, "analysis.py")
+        model_path = os.path.join(script_path, "model.py")
         try:
             create_files = "0"
             if fields["create_mesh_files"]:
@@ -85,8 +86,8 @@ def genmeshes():
                     "mpirun", "-np", "1", "python3", 
                     analysis_path, 
                     mesh_save_path, 
-                    RESULTS_PATH, 
-                    os.path.join(SCRIPT_PATH, CONFIG_NAME), 
+                    results_path, 
+                    str(script_path / config), 
                     create_files
                 ],
                 cwd=path_name,
@@ -101,7 +102,7 @@ def genmeshes():
         
     try:
         subprocess.run(
-            ["python3", model_path, arg, RESULTS_PATH],
+            ["python3", model_path, arg, results_path],
             check=True
         )
         console.log(f"[green]Model completed[/green]")
@@ -147,18 +148,27 @@ def intro():
     console.print(panel)
 
 def main():
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "-g":
-            intro()
-            genmeshes()
-        elif sys.argv[1] == "-c":
-            os.system("rm -rf " + RECORDS_PATH + "/*")
-        else:
-            console.log("[red]Please read command specifications for main.py[/red]")
-            print("Invalid command. Use -g <number> to generate meshes or -c to clear records.")
+    parser = argparse.ArgumentParser(description="OpenMATRIX v1.0")
+    parser.add_argument(
+        "-g", "--generate",
+        action="store_true",
+        help="Generate meshes based on config file."
+    )
+    parser.add_argument(
+        "-c", "--clear",
+        action="store_true",
+        help="Clear records."
+    )
+    
+    args = parser.parse_args()
+
+    if args.generate:
+        intro()
+        genmeshes()
+    elif args.clear:
+        os.system(f"rm -rf {records_path}/*")
     else:
-        console.log("[red]Please read command specifications for main.py[/red]")
-        print("Invalid command. Use -g <number> to generate meshes or -c to clear records.")
+        parser.print_help()
     
 if __name__ == "__main__":
     main()

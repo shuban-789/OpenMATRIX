@@ -1,0 +1,87 @@
+{
+
+    "name": "Ubuntu",
+
+    "build": {
+
+        "dockerfile": "Dockerfile",
+
+        "context":"..",
+
+        "args": {}
+
+    },
+
+   
+
+    // Set *default* container specific settings.json values on container create
+
+    "customizations": {
+
+        // Configure properties specific to VS Code.
+
+        "vscode": {
+
+            "settings": {},
+
+            // Add the IDs of extensions you want installed when the container
+
+            // is created. Note that some extensions may not work in Alpine
+
+            // Linux. See: https://aka.ms/vscode-remote/linux.
+
+            "extensions": [
+
+                "ms-python.python",
+
+                "ms-python.vscode-pylance",
+
+                "donjayamanne.python-environment-manager",
+
+                "ms-toolsai.jupyter"
+
+            ]
+
+        }
+
+    },
+
+   
+
+    // Mount shared volume
+
+    //"mounts": ["source=/directory/in/your/host/machine, target=/home/,type=bind,consistency=cached"],
+
+ 
+
+    // Use 'forwardPorts' to make a list of ports inside the container available
+
+    // locally.
+
+    // "forwardPorts": [],
+
+ 
+
+    // Use 'postCreateCommand' to run commands after the container is created.
+
+    // "postCreateCommand": "uname -a",
+
+ 
+
+    "runArgs": [
+
+        "--init",
+
+        // Allow a Cadence worker to register in the localhost Docker Compose
+
+        //cluster
+
+        "--network=host",
+
+        // Name of the container
+
+        "--name=open-matrix-0.6"
+
+    ]
+
+}

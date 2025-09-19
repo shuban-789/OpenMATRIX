@@ -5,14 +5,16 @@ import os
 import sys
 import csv
 import parser
+from pathlib import Path
 
-SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
-CONFIG_NAME = "config.json"
-results_path = sys.argv[2] if len(sys.argv) > 1 else "results"
-results_file = os.path.join(results_path, "data.csv")
+script_path = Path(__file__).resolve().parent
+records_path = script_path.parent / "records"
+results_path = script_path.parent / "results"
+config = script_path.parent / "config.json"
+results_file = results_path / "data.csv"
 console = Console()
 new_parser = parser.Parser()
-fields = new_parser.parsejson(open(os.path.join(SCRIPT_PATH, CONFIG_NAME), "r"))
+fields = new_parser.parsejson(config)
 
 def generate_matplot(x_field, y_field):
     x_data = []

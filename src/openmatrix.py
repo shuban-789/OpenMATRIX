@@ -267,13 +267,13 @@ class MeshGenerator:
 
         with XDMFFile(comm, save_path, "w") as xdmf:
             xdmf.write_mesh(mesh)
-            xdmf.write_meshtags(cell_tags)
-            xdmf.write_meshtags(facet_tags)
+            xdmf.write_meshtags(cell_tags, mesh.geometry)
+            xdmf.write_meshtags(facet_tags, mesh.geometry)
 
         frac = (self.circle_area_sum / self.square_area_sum) * 100
         size = self.layout_x * self.layout_y
 
-        match = re.search(r'mesh(\d+)\.xdmf$', save_path)
+        match = re.search(r'mesh(\d+)\.xdmf$', str(save_path))
         if match:
             n = int(match.group(1))
         else:
